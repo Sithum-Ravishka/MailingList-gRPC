@@ -1,8 +1,10 @@
 syntax = "proto3";
 package proto;
 
+// Set the Go package name for generated code.
 option go_package = "mailinglist/proto";
 
+// Define the EmailEntry message representing an entry in the mailing list.
 message EmailEntry {
   int64 id = 1;
   string email = 2;
@@ -10,22 +12,58 @@ message EmailEntry {
   bool opt_out = 4;
 }
 
-message CreateEmailRequest { string email_addr = 1; }
-message GetEmailRequest { string email_addr = 1; }
-message UpdateEmailRequest { EmailEntry email_entry = 1; }
-message DeleteEmailRequest { string email_addr = 1; }
+// Define the CreateEmailRequest message for creating a new email entry.
+message CreateEmailRequest {
+  string email_addr = 1;
+}
+
+// Define the GetEmailRequest message for retrieving an email entry.
+message GetEmailRequest {
+  string email_addr = 1;
+}
+
+// Define the UpdateEmailRequest message for updating an email entry.
+message UpdateEmailRequest {
+  EmailEntry email_entry = 1;
+}
+
+// Define the DeleteEmailRequest message for deleting an email entry.
+message DeleteEmailRequest {
+  string email_addr = 1;
+}
+
+// Define the GetEmailBatchRequest message for retrieving a batch of email entries.
 message GetEmailBatchRequest {
   int32 page = 1;
   int32 count = 2;
 }
 
-message EmailResponse { optional EmailEntry email_entry = 1; }
-message GetEmailBatchResponse { repeated EmailEntry email_entries = 1; }
+// Define the EmailResponse message for responses containing a single email entry.
+message EmailResponse {
+  // Make the email_entry field optional in the response.
+  optional EmailEntry email_entry = 1;
+}
 
+// Define the GetEmailBatchResponse message for responses containing a batch of email entries.
+message GetEmailBatchResponse {
+  // Make the email_entries field a repeated field to represent a list of entries.
+  repeated EmailEntry email_entries = 1;
+}
+
+// Define the MailingListService service containing RPC methods for the mailing list.
 service MailingListService {
+  // RPC method for creating a new email entry.
   rpc CreateEmail(CreateEmailRequest) returns (EmailResponse) {}
+
+  // RPC method for retrieving an email entry.
   rpc GetEmail(GetEmailRequest) returns (EmailResponse) {}
+
+  // RPC method for updating an email entry.
   rpc UpdateEmail(UpdateEmailRequest) returns (EmailResponse) {}
+
+  // RPC method for deleting an email entry.
   rpc DeleteEmail(DeleteEmailRequest) returns (EmailResponse) {}
+
+  // RPC method for retrieving a batch of email entries.
   rpc GetEmailBatch(GetEmailBatchRequest) returns (GetEmailBatchResponse) {}
 }

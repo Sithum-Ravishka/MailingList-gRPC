@@ -8,7 +8,7 @@ import (
 	"github.com/mattn/go-sqlite3"
 )
 
-// Reading and Writing from database
+// EmailEntry represents an entry in the emails table.
 type EmailEntry struct {
 	Id          int64
 	Email       string
@@ -16,9 +16,10 @@ type EmailEntry struct {
 	OptOut      bool
 }
 
-// create databse and table
-func TryCreate(db *sql.DB) { // use "_" ignore return value
-	_, err := db.Exec(` 
+// TryCreate attempts to create the emails table in the database if it does not exist.
+func TryCreate(db *sql.DB) {
+	// Use "_" to ignore the return value
+	_, err := db.Exec(`
 		CREATE TABLE emails (
 			id  			INTEGER PRIMARY KEY,
 			email 			TEXT UNIQUE,
@@ -28,7 +29,7 @@ func TryCreate(db *sql.DB) { // use "_" ignore return value
 	`)
 	if err != nil {
 		if sqlError, ok := err.(sqlite3.Error); ok {
-			// Code 1 == "table already exists"
+			// Code 1 indicates "table already exists"
 			if sqlError.Code != 1 {
 				log.Fatal(sqlError)
 			}
@@ -38,23 +39,27 @@ func TryCreate(db *sql.DB) { // use "_" ignore return value
 	}
 }
 
+// EmailEntryFromRow creates an EmailEntry from a database row.
 func EmailEntryFromRow(row *sql.Rows) (*EmailEntry, error) {
 	var id int64
 	var email string
 	var confirmed_at int64
 	var opt_out bool
 
-	err := row.Scan(&id, &email, &confirmed_at, &opt_out) //Going to scan row in database / same order in colum appere
+	// Scan the row into variables
+	err := row.Scan(&id, &email, &confirmed_at, &opt_out)
 
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
 
+	// Convert confirmed_at from UNIX timestamp to time.Time
 	t := time.Unix(confirmed_at, 0)
 	return &EmailEntry{Id: id, Email: email, ConfirmedAt: &t, OptOut: opt_out}, nil
 }
 
+// CreateEmail inserts a new email entry into the emails table.
 func CreateEmail(db *sql.DB, email string) error {
 	_, err := db.Exec(`INSERT INTO
 		emails(email, confirmed_at, opt_out) 
@@ -66,14 +71,13 @@ func CreateEmail(db *sql.DB, email string) error {
 	return nil
 }
 
+// GetEmail retrieves an email entry from the database based on the email address.
 func GetEmail(db *sql.DB, email string) (*EmailEntry, error) {
-
-	// run query and get back data as rows
+	// Run query to get data as rows
 	rows, err := db.Query(`
-	SELECT id, email, confirmed_at, opt_out
-	FROM emails
-	WHERE email = ?`, email)
-	// pass email to "?"
+		SELECT id, email, confirmed_at, opt_out
+		FROM emails
+		WHERE email = ?`, email)
 
 	if err != nil {
 		log.Println(err)
@@ -81,13 +85,16 @@ func GetEmail(db *sql.DB, email string) (*EmailEntry, error) {
 	}
 	defer rows.Close()
 
-	for rows.Next() { //get back data
+	for rows.Next() {
+		// Get data from row using EmailEntryFromRow function
 		return EmailEntryFromRow(rows)
 	}
 	return nil, nil
 }
 
+// UpdateEmail updates an existing email entry in the emails table.
 func UpdateEmail(db *sql.DB, entry EmailEntry) error {
+	// Convert confirmed_at to UNIX timestamp
 	t := entry.ConfirmedAt.Unix()
 
 	_, err := db.Exec(`
@@ -106,8 +113,8 @@ func UpdateEmail(db *sql.DB, entry EmailEntry) error {
 	return nil
 }
 
+// DeleteEmail marks an email as opted-out in the emails table.
 func DeleteEmail(db *sql.DB, email string) error {
-
 	_, err := db.Exec(`
 		UPDATE emails
 		SET opt_out=true
@@ -121,30 +128,35 @@ func DeleteEmail(db *sql.DB, email string) error {
 	return nil
 }
 
+// GetEmailBatchQueryParams represents parameters for batch email retrieval.
 type GetEmailBatchQueryParams struct {
-	Page  int // for paginate / for don't overlap email
-	Count int // number of email returns
+	Page  int // Page for pagination
+	Count int // Number of emails to return
 }
 
+// GetEmailBatch retrieves a batch of emails from the emails table.
 func GetEmailBatch(db *sql.DB, params GetEmailBatchQueryParams) ([]EmailEntry, error) {
 	var empty []EmailEntry
 
-	//select all information need in using EmailEntry
+	// Select all required information using EmailEntry
 	rows, err := db.Query(`
 		SELECT id, email, confirmed_at, opt_out 
 		FROM emails
 		WHERE opt_out = false
 		ORDER BY id ASC
 		LIMIT ? OFFSET ?`, params.Count, (params.Page-1)*params.Count)
+
 	if err != nil {
 		log.Println(err)
 		return empty, err
 	}
-	defer rows.Close() // don't need after return outoff rows
+	defer rows.Close()
 
+	// Create a slice to store the retrieved emails
 	emails := make([]EmailEntry, 0, params.Count)
 
 	for rows.Next() {
+		// Get EmailEntry from row and append to the slice
 		email, err := EmailEntryFromRow(rows)
 		if err != nil {
 			return nil, err
